@@ -118,3 +118,10 @@ func TestWorkerPool(t *testing.T) {
 		assert.True(t, took > 450*time.Millisecond && took < 460*time.Millisecond)
 	})
 }
+
+func TestNewWorkerPool(t *testing.T) {
+	// should panic if given 0 worker to work with, just can't do that :)
+	assert.Panics(t, func() {
+		NewWorkerPool(0, 0)
+	})
+}
