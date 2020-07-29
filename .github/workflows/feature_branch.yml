@@ -3,20 +3,25 @@ name: Go
 on: push
 
 jobs:
-
   Test:
-    name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.14", "1.13"]
+    name: Test, Lint, Format
     steps:
-
-    - name: Set up Go 1.14
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.14
-      id: go
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-
-    - name: Test
-      run: go test ./...
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Setup go lint
+        run: go get -u golang.org/x/lint/golint
+      - uses: actions/checkout@v2
+      - name: Test
+        run: go test ./...
+      - name: Lint
+        run: golint -set_exit_status ./...
+      - name: Format
+        run: test -z $(gofmt -l -s .)
+      - name: Vet
+        run: go vet ./...
