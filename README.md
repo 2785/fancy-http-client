@@ -48,6 +48,6 @@ It can then be passed to multiple goroutines that each performs individual `Do()
 
 ```Go
 reqs := []*http.Request{bunch, of, requests}
-responsers := fhc.DoBunch(reqs)
+responsers, _ := fhc.DoBunch(reqs)
 res0, err0 := responsers[0].Response()
 ```
