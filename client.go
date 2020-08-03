@@ -104,7 +104,7 @@ func (c *FancyHTTPClient) DoBunch(reqs []*http.Request) ([]*ResponseGetter, erro
 	return responses, nil
 }
 
-// Destroy waits for existing work to finish and stops the workerpool
+// Destroy waits for existing work to finish and stops the workerpool, function will only return after all work has been done
 func (c *FancyHTTPClient) Destroy() {
 	c.mut.Lock()
 	c.workerPool.StopWait()
