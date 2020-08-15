@@ -33,6 +33,7 @@ func TestFancyHTTPClient_Do(t *testing.T) {
 		start := time.Now()
 		req, _ := http.NewRequest("GET", "https://example.com", nil)
 		res, err := fhc.Do(req)
+		fhc.Destroy()
 		took := time.Since(start)
 		t.Logf("took: %s", took)
 		assert.NoError(t, err)

@@ -1,12 +1,14 @@
 package fancyhttpclient
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gammazero/workerpool"
+	"golang.org/x/time/rate"
 )
 
 // Doer performs an HTTP request
@@ -26,36 +28,29 @@ func New(hc Doer, options ...ClientOption) *FancyHTTPClient {
 
 	c.workerPool = workerpool.New(c.maxConnection)
 
-	c.doneChan = make(chan struct{})
-
 	c.mut = &sync.RWMutex{}
 
-	c.delayChan = make(chan struct{})
-	go func() {
-		c.delayChan <- struct{}{}
-		for {
-			time.Sleep(c.delay)
-			select {
-			case c.delayChan <- struct{}{}:
-			case <-c.doneChan:
-				close(c.delayChan)
-				return
-			}
-		}
-	}()
+	c.configureLimiterOnce.Do(func() {
+		c.waiter = rate.NewLimiter(rate.Inf, 1)
+	})
 
 	return c
 }
 
+// Waiter specifies an interface that provides rate limiting, wait will be called everytime before a new request can proceed
+type Waiter interface {
+	Wait(ctx context.Context) error
+}
+
 // FancyHTTPClient is a custom HTTP client that is able to handle
 type FancyHTTPClient struct {
-	httpClient    Doer
-	delay         time.Duration
-	maxConnection int
-	workerPool    *workerpool.WorkerPool
-	delayChan     chan struct{}
-	doneChan      chan struct{}
-	mut           *sync.RWMutex
+	httpClient           Doer
+	delay                time.Duration
+	maxConnection        int
+	workerPool           *workerpool.WorkerPool
+	mut                  *sync.RWMutex
+	configureLimiterOnce sync.Once
+	waiter               Waiter
 }
 
 // Do fires off one single request
@@ -66,7 +61,7 @@ func (c *FancyHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		return nil, errors.New("client has been terminated, cannot send request")
 	}
 	c.workerPool.Submit(func() {
-		<-c.delayChan
+		c.waiter.Wait(req.Context())
 		res, err := c.httpClient.Do(req)
 		resChan <- res
 		errChan <- err
@@ -92,7 +87,7 @@ func (c *FancyHTTPClient) DoBunch(reqs []*http.Request) ([]*ResponseGetter, erro
 		req := r
 		wg.Add(1)
 		c.workerPool.Submit(func() {
-			<-c.delayChan
+			c.waiter.Wait(req.Context())
 			res, err := c.httpClient.Do(req)
 			responses[ind] = &ResponseGetter{res, err}
 			wg.Done()
@@ -108,8 +103,6 @@ func (c *FancyHTTPClient) DoBunch(reqs []*http.Request) ([]*ResponseGetter, erro
 func (c *FancyHTTPClient) Destroy() {
 	c.mut.Lock()
 	c.workerPool.StopWait()
-	c.doneChan <- struct{}{}
-	close(c.doneChan)
 	c.mut.Unlock()
 }
 
