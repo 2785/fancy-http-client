@@ -28,8 +28,6 @@ func New(hc Doer, options ...ClientOption) *FancyHTTPClient {
 
 	c.workerPool = workerpool.New(c.maxConnection)
 
-	c.mut = &sync.RWMutex{}
-
 	c.configureLimiterOnce.Do(func() {
 		c.waiter = rate.NewLimiter(rate.Inf, 1)
 	})
@@ -48,7 +46,7 @@ type FancyHTTPClient struct {
 	delay                time.Duration
 	maxConnection        int
 	workerPool           *workerpool.WorkerPool
-	mut                  *sync.RWMutex
+	mut                  sync.RWMutex
 	configureLimiterOnce sync.Once
 	waiter               Waiter
 }
